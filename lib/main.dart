@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'core/theme/app_theme.dart';
+
 void main() {
   runApp(const SketchSyncApp());
 }
@@ -9,18 +11,27 @@ class SketchSyncApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SketchSync',
-      home: Scaffold(
-        body: Center(
-          child: Text(
-            'SketchSync ✨',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+      theme: AppTheme.lightTheme,
+      home: const SketchSyncHome(),
+    );
+  }
+}
+
+class SketchSyncHome extends StatelessWidget {
+  const SketchSyncHome({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Text(
+          'SketchSync ✨',
+          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
       ),
     );
