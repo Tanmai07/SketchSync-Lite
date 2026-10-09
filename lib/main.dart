@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await SupabaseService.initialize();
 
-  runApp(const SketchSyncApp());
+  runApp(
+    const ProviderScope(
+      child: SketchSyncApp(),
+    ),
+  );
 }
 
 class SketchSyncApp extends StatelessWidget {
@@ -20,25 +26,7 @@ class SketchSyncApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'SketchSync',
       theme: AppTheme.lightTheme,
-      home: const SketchSyncHome(),
-    );
-  }
-}
-
-class SketchSyncHome extends StatelessWidget {
-  const SketchSyncHome({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          'SketchSync ✨',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-      ),
+      home: const SplashScreen(),
     );
   }
 }
