@@ -33,7 +33,7 @@ class SketchSyncHome extends StatelessWidget {
     return Scaffold(
       body: Center(
         child: Text(
-          'SketchSync ✨',
+          'SketchSync ',
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
