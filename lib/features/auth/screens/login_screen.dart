@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../dashboard/screens/dashboard_screen.dart';
 import '../providers/auth_provider.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
@@ -48,15 +48,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      showMessage('Welcome back! ✨');
+      // Remove the login screen and open dashboard immediately.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const DashboardScreen(),
+        ),
+        (route) => false,
+      );
     } on AuthException catch (e) {
       if (!mounted) return;
 
       showMessage(e.message);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
-      showMessage('Something went wrong. Please try again.');
+      showMessage(
+        'Something went wrong. Please try again.',
+      );
     } finally {
       if (mounted) {
         setState(() {
