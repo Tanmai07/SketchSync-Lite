@@ -16,11 +16,10 @@ class BoardRepository {
       throw Exception('User is not logged in.');
     }
 
-    final response =
-        await supabase.from('boards').select().eq('owner_id', user.id).order(
-              'updated_at',
-              ascending: false,
-            );
+    final response = await supabase
+        .from('boards')
+        .select()
+        .order('updated_at', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);
   }
