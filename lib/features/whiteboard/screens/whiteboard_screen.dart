@@ -20,6 +20,12 @@ class WhiteboardScreen extends StatefulWidget {
 }
 
 class _WhiteboardScreenState extends State<WhiteboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _loadStickyNotes();
+  }
+
   final WhiteboardRepository _repository =
       WhiteboardRepository(Supabase.instance.client);
 
@@ -27,12 +33,43 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   final List<WhiteboardShape> _shapes = [];
   final List<StickyNote> _stickyNotes = [];
 
+  Future<void> _loadStickyNotes() async {
+    try {
+      final rows = await _repository.getStickyNotes(
+        boardId: widget.boardId,
+      );
+
+      final notes = rows.map((row) {
+        final data = Map<String, dynamic>.from(row['data'] as Map);
+
+        return StickyNote(
+          id: row['id'] as String,
+          text: (data['text'] ?? '').toString(),
+          position: Offset(
+            (data['x'] as num).toDouble(),
+            (data['y'] as num).toDouble(),
+          ),
+        );
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _stickyNotes
+          ..clear()
+          ..addAll(notes);
+      });
+    } catch (e) {
+      debugPrint('Failed to load sticky notes: $e');
+    }
+  }
+
   bool _isPenSelected = false;
   bool _isEraserSelected = false;
   bool _isRectangleSelected = false;
   bool _isCircleSelected = false;
   bool _isStickyNoteSelected = false;
-  bool _isSelectMode = false;
+  bool _isSelectMode = false; //true;
   bool _hasPenMoved = false;
 
   Offset? _shapeStart;
@@ -145,11 +182,26 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     });
   }
 
-  void _endStroke(DragEndDetails details) {
+  void _endStroke(DragEndDetails details) async {
     if (_isSelectMode) {
+      final note = _selectedStickyNote;
+
       setState(() {
         _dragOffset = null;
       });
+
+      if (note != null) {
+        try {
+          await _repository.updateStickyNotePosition(
+            objectId: note.id,
+            x: note.position.dx,
+            y: note.position.dy,
+          );
+        } catch (e) {
+          debugPrint('Failed to update sticky note position: $e');
+        }
+      }
+
       return;
     }
 
@@ -258,11 +310,27 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // DELETE STICKY NOTE
   // ============================================================
 
-  void _deleteStickyNote(StickyNote note) {
-    setState(() {
-      _stickyNotes.remove(note);
-      _selectedStickyNote = null;
-    });
+  Future<void> _deleteStickyNote(StickyNote note) async {
+    try {
+      await _repository.deleteStickyNote(
+        objectId: note.id,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _stickyNotes.remove(note);
+        _selectedStickyNote = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete sticky note: $e'),
+        ),
+      );
+    }
   }
 
   // ============================================================
@@ -357,7 +425,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
                 if (text.isEmpty) return;
 
                 try {
-                  await _repository.createStickyNote(
+                  final noteId = await _repository.createStickyNote(
                     boardId: widget.boardId,
                     x: position.dx,
                     y: position.dy,
@@ -368,7 +436,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
 
                   setState(() {
                     final newNote = StickyNote(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      id: noteId,
                       position: position,
                       text: text,
                     );
