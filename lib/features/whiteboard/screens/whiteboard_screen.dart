@@ -24,6 +24,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   void initState() {
     super.initState();
     _loadStickyNotes();
+    _loadStrokes();
   }
 
   final WhiteboardRepository _repository =
@@ -61,6 +62,39 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
       });
     } catch (e) {
       debugPrint('Failed to load sticky notes: $e');
+    }
+  }
+
+  Future<void> _loadStrokes() async {
+    try {
+      final rows = await _repository.getStrokes(
+        boardId: widget.boardId,
+      );
+
+      for (final row in rows) {
+        final data = Map<String, dynamic>.from(
+          row['data'] as Map,
+        );
+
+        final points = (data['points'] as List)
+            .map(
+              (point) => Offset(
+                (point['x'] as num).toDouble(),
+                (point['y'] as num).toDouble(),
+              ),
+            )
+            .toList();
+
+        if (points.isNotEmpty) {
+          _strokes.add(points);
+        }
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Failed to load strokes: $e');
     }
   }
 
@@ -182,7 +216,8 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     });
   }
 
-  void _endStroke(DragEndDetails details) async {
+  Future<void> _endStroke(DragEndDetails details) async {
+    // SELECT MODE
     if (_isSelectMode) {
       final note = _selectedStickyNote;
 
@@ -205,6 +240,26 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
       return;
     }
 
+    // PEN MODE
+    if (_isPenSelected && _strokes.isNotEmpty) {
+      final stroke = _strokes.last;
+
+      // Ignore empty strokes
+      if (stroke.isEmpty) return;
+
+      try {
+        await _repository.createStroke(
+          boardId: widget.boardId,
+          points: stroke,
+        );
+      } catch (e) {
+        debugPrint('Failed to save stroke: $e');
+      }
+
+      return;
+    }
+
+    // SHAPE MODE
     if (_shapeStart == null || _shapeEnd == null) return;
 
     if (_isRectangleSelected || _isCircleSelected) {
@@ -222,7 +277,6 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
       });
     }
   }
-
   // ============================================================
   // FIND STICKY NOTE
   // ============================================================

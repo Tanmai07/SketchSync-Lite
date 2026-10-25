@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:ui';
 
 class WhiteboardRepository {
   final SupabaseClient _supabase;
@@ -96,5 +97,49 @@ class WhiteboardRepository {
     await _supabase.from('board_objects').update({
       'data': data,
     }).eq('id', objectId);
+  }
+
+  Future<String> createStroke({
+    required String boardId,
+    required List<Offset> points,
+  }) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      throw Exception('User is not logged in.');
+    }
+
+    final response = await _supabase
+        .from('board_objects')
+        .insert({
+          'board_id': boardId,
+          'type': 'stroke',
+          'data': {
+            'points': points
+                .map((point) => {
+                      'x': point.dx,
+                      'y': point.dy,
+                    })
+                .toList(),
+          },
+          'created_by': user.id,
+        })
+        .select('id')
+        .single();
+
+    return response['id'] as String;
+  }
+
+  Future<List<Map<String, dynamic>>> getStrokes({
+    required String boardId,
+  }) async {
+    final response = await _supabase
+        .from('board_objects')
+        .select('id, data')
+        .eq('board_id', boardId)
+        .eq('type', 'stroke')
+        .order('created_at');
+
+    return List<Map<String, dynamic>>.from(response);
   }
 }
