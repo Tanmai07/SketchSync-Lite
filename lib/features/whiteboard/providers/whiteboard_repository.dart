@@ -76,4 +76,25 @@ class WhiteboardRepository {
       'data': data,
     }).eq('id', objectId);
   }
+
+  Future<void> updateStickyNoteText({
+    required String objectId,
+    required String text,
+  }) async {
+    final existing = await _supabase
+        .from('board_objects')
+        .select('data')
+        .eq('id', objectId)
+        .single();
+
+    final data = Map<String, dynamic>.from(
+      existing['data'] as Map,
+    );
+
+    data['text'] = text;
+
+    await _supabase.from('board_objects').update({
+      'data': data,
+    }).eq('id', objectId);
+  }
 }

@@ -287,16 +287,35 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final text = controller.text.trim();
 
                 if (text.isEmpty) return;
 
-                setState(() {
-                  note.text = text;
-                });
+                try {
+                  await _repository.updateStickyNoteText(
+                    objectId: note.id,
+                    text: text,
+                  );
 
-                Navigator.of(dialogContext).pop();
+                  if (!mounted) return;
+
+                  setState(() {
+                    note.text = text;
+                  });
+
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                } catch (e) {
+                  if (!mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to update sticky note: $e'),
+                    ),
+                  );
+                }
               },
               child: const Text('Save'),
             ),
