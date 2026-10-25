@@ -21,10 +21,12 @@ class WhiteboardScreen extends StatefulWidget {
 
 class _WhiteboardScreenState extends State<WhiteboardScreen> {
   @override
+  @override
   void initState() {
     super.initState();
     _loadStickyNotes();
     _loadStrokes();
+    _loadShapes();
   }
 
   final WhiteboardRepository _repository =
@@ -33,6 +35,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   final List<List<Offset>> _strokes = [];
   final List<String> _strokeIds = [];
   final List<WhiteboardShape> _shapes = [];
+  // final List<String> _shapeIds = [];
   final List<StickyNote> _stickyNotes = [];
 
   Future<void> _loadStickyNotes() async {
@@ -100,8 +103,51 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     }
   }
 
+  Future<void> _loadShapes() async {
+    try {
+      final rows = await _repository.getShapes(
+        boardId: widget.boardId,
+      );
+
+      for (final row in rows) {
+        final data = Map<String, dynamic>.from(row['data'] as Map);
+
+        final start = Offset(
+          (data['startX'] as num).toDouble(),
+          (data['startY'] as num).toDouble(),
+        );
+
+        final end = Offset(
+          (data['endX'] as num).toDouble(),
+          (data['endY'] as num).toDouble(),
+        );
+
+        final type =
+            row['type'] == 'rectangle' ? ShapeType.rectangle : ShapeType.circle;
+
+        _shapes.add(
+          WhiteboardShape(
+            id: row['id'] as String,
+            type: type,
+            start: start,
+            end: end,
+          ),
+        );
+
+        //_shapeIds.add(row['id'] as String);
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Failed to load shapes: $e');
+    }
+  }
+
   bool _isPenSelected = false;
   bool _isEraserSelected = false;
+  bool _isErasingObject = false;
   bool _isRectangleSelected = false;
   bool _isCircleSelected = false;
   bool _isStickyNoteSelected = false;
@@ -264,20 +310,44 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
 
     // SHAPE MODE
     if (_shapeStart == null || _shapeEnd == null) return;
-
     if (_isRectangleSelected || _isCircleSelected) {
-      setState(() {
-        _shapes.add(
-          WhiteboardShape(
-            type: _isRectangleSelected ? ShapeType.rectangle : ShapeType.circle,
-            start: _shapeStart!,
-            end: _shapeEnd!,
-          ),
+      final start = _shapeStart!;
+      final end = _shapeEnd!;
+
+      final shapeType = _isRectangleSelected ? 'rectangle' : 'circle';
+
+      try {
+        final shapeId = await _repository.createShape(
+          boardId: widget.boardId,
+          type: shapeType,
+          start: start,
+          end: end,
         );
 
-        _shapeStart = null;
-        _shapeEnd = null;
-      });
+        setState(() {
+          _shapes.add(
+            WhiteboardShape(
+              id: shapeId,
+              type:
+                  _isRectangleSelected ? ShapeType.rectangle : ShapeType.circle,
+              start: start,
+              end: end,
+            ),
+          );
+
+          // _shapeIds.add(shapeId);
+
+          _shapeStart = null;
+          _shapeEnd = null;
+        });
+      } catch (e) {
+        debugPrint('Failed to save shape: $e');
+
+        setState(() {
+          _shapeStart = null;
+          _shapeEnd = null;
+        });
+      }
     }
   }
 
@@ -414,38 +484,84 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // ERASER
   // ============================================================
   Future<void> _eraseAtPosition(Offset position) async {
-    const double eraserRadius = 25;
+    //const double eraserRadius = 25;
+
+    if (_isErasingObject) return;
+
+    _isErasingObject = true;
 
     // ============================================================
 // ERASE PEN STROKES
 // ============================================================
+    /* for (int i = _shapes.length - 1; i >= 0; i--) {
+      final shape = _shapes[i];
 
-    for (int i = _strokes.length - 1; i >= 0; i--) {
-      final stroke = _strokes[i];
+      final rect = Rect.fromPoints(
+        shape.start,
+        shape.end,
+      );
 
-      for (final point in stroke) {
-        final distance = (point - position).distance;
+      bool hit = false;
 
-        if (distance <= eraserRadius) {
-          final strokeId = _strokeIds[i];
+      if (shape.type == ShapeType.rectangle) {
+        // Check only the rectangle border.
+        const hitDistance = 25.0;
 
-          try {
-            await _repository.deleteBoardObject(
-              objectId: strokeId,
-            );
+        final topDistance = (position.dy - rect.top).abs();
+        final bottomDistance = (position.dy - rect.bottom).abs();
+        final leftDistance = (position.dx - rect.left).abs();
+        final rightDistance = (position.dx - rect.right).abs();
 
-            setState(() {
-              _strokes.removeAt(i);
-              _strokeIds.removeAt(i);
-            });
-          } catch (e) {
-            debugPrint('Failed to delete stroke: $e');
-          }
+        final horizontalRange = position.dx >= rect.left - hitDistance &&
+            position.dx <= rect.right + hitDistance;
 
-          return;
+        final verticalRange = position.dy >= rect.top - hitDistance &&
+            position.dy <= rect.bottom + hitDistance;
+
+        hit = (horizontalRange && topDistance <= hitDistance) ||
+            (horizontalRange && bottomDistance <= hitDistance) ||
+            (verticalRange && leftDistance <= hitDistance) ||
+            (verticalRange && rightDistance <= hitDistance);
+      } else {
+        // Check the actual oval boundary.
+        final center = rect.center;
+
+        final radiusX = rect.width / 2;
+        final radiusY = rect.height / 2;
+
+        if (radiusX > 0 && radiusY > 0) {
+          final dx = position.dx - center.dx;
+          final dy = position.dy - center.dy;
+
+          final normalizedDistance = math.sqrt(
+            (dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY),
+          );
+
+          const hitTolerance = 0.20;
+
+          hit = (normalizedDistance - 1).abs() <= hitTolerance;
         }
       }
-    }
+
+      if (hit) {
+        final shapeId = _shapeIds[i];
+
+        try {
+          await _repository.deleteBoardObject(
+            objectId: shapeId,
+          );
+
+          setState(() {
+            _shapes.removeAt(i);
+            _shapeIds.removeAt(i);
+          });
+        } catch (e) {
+          debugPrint('Failed to delete shape: $e');
+        }
+
+        return;
+      }
+    }*/
 
     // ============================================================
     // ERASE SHAPES
@@ -459,17 +575,58 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
         shape.end,
       );
 
-      // Expand the shape hit area slightly
-      // so the eraser feels easier to use.
-      final expandedRect = rect.inflate(eraserRadius);
+      bool hit = false;
 
-      if (expandedRect.contains(position)) {
-        setState(() {
-          _shapes.removeAt(i);
-        });
+      if (shape.type == ShapeType.rectangle) {
+        // Check the rectangle border instead of the whole area.
+        const hitDistance = 10.0;
+
+        final top = (position.dy - rect.top).abs();
+        final bottom = (position.dy - rect.bottom).abs();
+        final left = (position.dx - rect.left).abs();
+        final right = (position.dx - rect.right).abs();
+
+        final insideHorizontal = position.dx >= rect.left - hitDistance &&
+            position.dx <= rect.right + hitDistance;
+
+        final insideVertical = position.dy >= rect.top - hitDistance &&
+            position.dy <= rect.bottom + hitDistance;
+
+        hit = (insideHorizontal && top <= hitDistance) ||
+            (insideHorizontal && bottom <= hitDistance) ||
+            (insideVertical && left <= hitDistance) ||
+            (insideVertical && right <= hitDistance);
+      } else if (shape.type == ShapeType.circle) {
+        // Check the circle boundary.
+        final center = rect.center;
+        final radius = math.min(rect.width, rect.height) / 2;
+
+        final distance = (position - center).distance;
+
+        hit = (distance - radius).abs() <= 10;
+      }
+
+      if (hit) {
+        final shapeId = shape.id;
+
+        try {
+          await _repository.deleteBoardObject(
+            objectId: shapeId,
+          );
+
+          setState(() {
+            _shapes.removeAt(i);
+            //_shapeIds.removeAt(i);
+          });
+        } catch (e) {
+          debugPrint('Failed to delete shape: $e');
+        }
+        _isErasingObject = false;
         return;
       }
     }
+
+    _isErasingObject = false;
   }
 
   // ============================================================
@@ -888,6 +1045,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
                 selectedStickyNote: _selectedStickyNote,
                 previewShape: _shapeStart != null && _shapeEnd != null
                     ? WhiteboardShape(
+                        id: '',
                         type: _isRectangleSelected
                             ? ShapeType.rectangle
                             : ShapeType.circle,
@@ -1217,11 +1375,13 @@ enum ShapeType {
 }
 
 class WhiteboardShape {
+  final String id;
   final ShapeType type;
   final Offset start;
   final Offset end;
 
   const WhiteboardShape({
+    required this.id,
     required this.type,
     required this.start,
     required this.end,

@@ -148,4 +148,47 @@ class WhiteboardRepository {
   }) async {
     await _supabase.from('board_objects').delete().eq('id', objectId);
   }
+
+  Future<String> createShape({
+    required String boardId,
+    required String type,
+    required Offset start,
+    required Offset end,
+  }) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      throw Exception('User is not logged in.');
+    }
+
+    final response = await _supabase
+        .from('board_objects')
+        .insert({
+          'board_id': boardId,
+          'type': type,
+          'data': {
+            'startX': start.dx,
+            'startY': start.dy,
+            'endX': end.dx,
+            'endY': end.dy,
+          },
+          'created_by': user.id,
+        })
+        .select('id')
+        .single();
+
+    return response['id'] as String;
+  }
+
+  Future<List<Map<String, dynamic>>> getShapes({
+    required String boardId,
+  }) async {
+    final response = await _supabase
+        .from('board_objects')
+        .select('id, type, data')
+        .eq('board_id', boardId)
+        .inFilter('type', ['rectangle', 'circle']).order('created_at');
+
+    return List<Map<String, dynamic>>.from(response);
+  }
 }
