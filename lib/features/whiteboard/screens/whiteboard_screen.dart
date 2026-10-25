@@ -24,13 +24,33 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   @override
   void initState() {
     super.initState();
+
     _loadStickyNotes();
     _loadStrokes();
     _loadShapes();
+
+    _boardChannel = Supabase.instance.client
+        .channel('board_${widget.boardId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'board_objects',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'board_id',
+            value: widget.boardId,
+          ),
+          callback: (payload) {
+            debugPrint('Realtime object inserted: ${payload.newRecord}');
+          },
+        )
+        .subscribe();
   }
 
   final WhiteboardRepository _repository =
       WhiteboardRepository(Supabase.instance.client);
+
+  RealtimeChannel? _boardChannel;
 
   final List<List<Offset>> _strokes = [];
   final List<String> _strokeIds = [];
@@ -562,7 +582,44 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
         return;
       }
     }*/
+// ============================================================
+// ERASE PEN STROKES
+// ============================================================
 
+    const double eraserRadius = 25;
+
+    for (int i = _strokes.length - 1; i >= 0; i--) {
+      final stroke = _strokes[i];
+
+      bool hit = false;
+
+      for (final point in stroke) {
+        if ((position - point).distance <= eraserRadius) {
+          hit = true;
+          break;
+        }
+      }
+
+      if (hit) {
+        final strokeId = _strokeIds[i];
+
+        try {
+          await _repository.deleteBoardObject(
+            objectId: strokeId,
+          );
+
+          setState(() {
+            _strokes.removeAt(i);
+            _strokeIds.removeAt(i);
+          });
+        } catch (e) {
+          debugPrint('Failed to delete stroke: $e');
+        }
+
+        _isErasingObject = false;
+        return;
+      }
+    }
     // ============================================================
     // ERASE SHAPES
     // ============================================================
