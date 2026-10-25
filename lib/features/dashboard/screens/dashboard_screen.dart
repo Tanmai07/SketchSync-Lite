@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../providers/board_provider.dart';
 import '../widgets/create_board_dialog.dart';
+import '../../whiteboard/screens/whiteboard_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -727,10 +728,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       child: InkWell(
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '$title will open in the whiteboard',
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => WhiteboardScreen(
+                boardId: boardId,
+                boardTitle: title,
               ),
             ),
           );
