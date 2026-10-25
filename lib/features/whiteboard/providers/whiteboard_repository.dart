@@ -142,4 +142,10 @@ class WhiteboardRepository {
 
     return List<Map<String, dynamic>>.from(response);
   }
+
+  Future<void> deleteBoardObject({
+    required String objectId,
+  }) async {
+    await _supabase.from('board_objects').delete().eq('id', objectId);
+  }
 }

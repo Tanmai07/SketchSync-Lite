@@ -31,6 +31,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
       WhiteboardRepository(Supabase.instance.client);
 
   final List<List<Offset>> _strokes = [];
+  final List<String> _strokeIds = [];
   final List<WhiteboardShape> _shapes = [];
   final List<StickyNote> _stickyNotes = [];
 
@@ -87,6 +88,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
 
         if (points.isNotEmpty) {
           _strokes.add(points);
+          _strokeIds.add(row['id'] as String);
         }
       }
 
@@ -244,14 +246,15 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     if (_isPenSelected && _strokes.isNotEmpty) {
       final stroke = _strokes.last;
 
-      // Ignore empty strokes
       if (stroke.isEmpty) return;
 
       try {
-        await _repository.createStroke(
+        final strokeId = await _repository.createStroke(
           boardId: widget.boardId,
           points: stroke,
         );
+
+        _strokeIds.add(strokeId);
       } catch (e) {
         debugPrint('Failed to save stroke: $e');
       }
@@ -277,6 +280,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
       });
     }
   }
+
   // ============================================================
   // FIND STICKY NOTE
   // ============================================================
@@ -409,12 +413,12 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // ============================================================
   // ERASER
   // ============================================================
-  void _eraseAtPosition(Offset position) {
+  Future<void> _eraseAtPosition(Offset position) async {
     const double eraserRadius = 25;
 
     // ============================================================
-    // ERASE PEN STROKES
-    // ============================================================
+// ERASE PEN STROKES
+// ============================================================
 
     for (int i = _strokes.length - 1; i >= 0; i--) {
       final stroke = _strokes[i];
@@ -423,9 +427,21 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
         final distance = (point - position).distance;
 
         if (distance <= eraserRadius) {
-          setState(() {
-            _strokes.removeAt(i);
-          });
+          final strokeId = _strokeIds[i];
+
+          try {
+            await _repository.deleteBoardObject(
+              objectId: strokeId,
+            );
+
+            setState(() {
+              _strokes.removeAt(i);
+              _strokeIds.removeAt(i);
+            });
+          } catch (e) {
+            debugPrint('Failed to delete stroke: $e');
+          }
+
           return;
         }
       }
