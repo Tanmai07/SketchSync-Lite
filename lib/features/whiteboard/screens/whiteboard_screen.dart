@@ -222,6 +222,10 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     });
   }
 
+  bool get _canEdit {
+    return _boardRole == 'owner' || _boardRole == 'editor';
+  }
+
   bool _isPenSelected = false;
   bool _isEraserSelected = false;
   bool _isErasingObject = false;
@@ -243,6 +247,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // ============================================================
 
   void _startStroke(DragStartDetails details) {
+    if (!_canEdit) return;
     final position = details.localPosition;
 
     // Select / move mode
@@ -297,6 +302,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   }
 
   void _updateStroke(DragUpdateDetails details) {
+    if (!_canEdit) return;
     final position = details.localPosition;
 
     // Move selected sticky note
@@ -343,6 +349,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   }
 
   Future<void> _endStroke(DragEndDetails details) async {
+    if (!_canEdit) return;
     // SELECT MODE
     if (_isSelectMode) {
       final note = _selectedStickyNote;
@@ -460,6 +467,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // ============================================================
 
   void _editStickyNote(StickyNote note) {
+    if (!_canEdit) return;
     final controller = TextEditingController(
       text: note.text,
     );
@@ -536,6 +544,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // ============================================================
 
   Future<void> _deleteStickyNote(StickyNote note) async {
+    if (!_canEdit) return;
     try {
       await _repository.deleteStickyNote(
         objectId: note.id,
@@ -563,7 +572,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // ============================================================
   Future<void> _eraseAtPosition(Offset position) async {
     //const double eraserRadius = 25;
-
+    if (!_canEdit) return;
     if (_isErasingObject) return;
 
     _isErasingObject = true;
@@ -749,6 +758,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   // ============================================================
 
   void _addStickyNote(Offset position) {
+    if (!_canEdit) return;
     final controller = TextEditingController();
 
     showDialog(
@@ -934,89 +944,91 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
                   ),
 
                   // Pen
-                  _buildToolButton(
-                    icon: Icons.edit_outlined,
-                    tooltip: 'Pen',
-                    isSelected: _isPenSelected,
-                    onPressed: () {
-                      setState(() {
-                        _isPenSelected = true;
-                        _isEraserSelected = false;
-                        _isRectangleSelected = false;
-                        _isCircleSelected = false;
-                        _isStickyNoteSelected = false;
-                        _isSelectMode = false;
-                      });
-                    },
-                  ),
+                  if (_canEdit) ...[
+                    _buildToolButton(
+                      icon: Icons.edit_outlined,
+                      tooltip: 'Pen',
+                      isSelected: _isPenSelected,
+                      onPressed: () {
+                        setState(() {
+                          _isPenSelected = true;
+                          _isEraserSelected = false;
+                          _isRectangleSelected = false;
+                          _isCircleSelected = false;
+                          _isStickyNoteSelected = false;
+                          _isSelectMode = false;
+                        });
+                      },
+                    ),
 
-                  // Eraser
-                  _buildToolButton(
-                    icon: Icons.auto_fix_high_outlined,
-                    tooltip: 'Eraser',
-                    isSelected: _isEraserSelected,
-                    onPressed: () {
-                      setState(() {
-                        _isEraserSelected = true;
-                        _isPenSelected = false;
-                        _isRectangleSelected = false;
-                        _isCircleSelected = false;
-                        _isStickyNoteSelected = false;
-                        _isSelectMode = false;
-                      });
-                    },
-                  ),
+                    // Eraser
+                    _buildToolButton(
+                      icon: Icons.auto_fix_high_outlined,
+                      tooltip: 'Eraser',
+                      isSelected: _isEraserSelected,
+                      onPressed: () {
+                        setState(() {
+                          _isEraserSelected = true;
+                          _isPenSelected = false;
+                          _isRectangleSelected = false;
+                          _isCircleSelected = false;
+                          _isStickyNoteSelected = false;
+                          _isSelectMode = false;
+                        });
+                      },
+                    ),
 
-                  // Sticky Note
-                  _buildToolButton(
-                    icon: Icons.sticky_note_2_outlined,
-                    tooltip: 'Sticky Note',
-                    isSelected: _isStickyNoteSelected,
-                    onPressed: () {
-                      setState(() {
-                        _isStickyNoteSelected = true;
-                        _isPenSelected = false;
-                        _isEraserSelected = false;
-                        _isRectangleSelected = false;
-                        _isCircleSelected = false;
-                        _isSelectMode = false;
-                      });
-                    },
-                  ),
+                    // Sticky Note
+                    _buildToolButton(
+                      icon: Icons.sticky_note_2_outlined,
+                      tooltip: 'Sticky Note',
+                      isSelected: _isStickyNoteSelected,
+                      onPressed: () {
+                        setState(() {
+                          _isStickyNoteSelected = true;
+                          _isPenSelected = false;
+                          _isEraserSelected = false;
+                          _isRectangleSelected = false;
+                          _isCircleSelected = false;
+                          _isSelectMode = false;
+                        });
+                      },
+                    ),
 
-                  // Rectangle
-                  _buildToolButton(
-                    icon: Icons.rectangle_outlined,
-                    tooltip: 'Rectangle',
-                    isSelected: _isRectangleSelected,
-                    onPressed: () {
-                      setState(() {
-                        _isRectangleSelected = true;
-                        _isCircleSelected = false;
-                        _isPenSelected = false;
-                        _isEraserSelected = false;
-                        _isStickyNoteSelected = false;
-                        _isSelectMode = false;
-                      });
-                    },
-                  ),
+                    // Rectangle
+                    _buildToolButton(
+                      icon: Icons.rectangle_outlined,
+                      tooltip: 'Rectangle',
+                      isSelected: _isRectangleSelected,
+                      onPressed: () {
+                        setState(() {
+                          _isRectangleSelected = true;
+                          _isCircleSelected = false;
+                          _isPenSelected = false;
+                          _isEraserSelected = false;
+                          _isStickyNoteSelected = false;
+                          _isSelectMode = false;
+                        });
+                      },
+                    ),
 
-                  // Circle
-                  _buildToolButton(
-                    icon: Icons.circle_outlined,
-                    tooltip: 'Circle',
-                    isSelected: _isCircleSelected,
-                    onPressed: () {
-                      setState(() {
-                        _isCircleSelected = true;
-                        _isRectangleSelected = false;
-                        _isPenSelected = false;
-                        _isEraserSelected = false;
-                        _isStickyNoteSelected = false;
-                        _isSelectMode = false;
-                      });
-                    },
-                  ),
+                    // Circle
+                    _buildToolButton(
+                      icon: Icons.circle_outlined,
+                      tooltip: 'Circle',
+                      isSelected: _isCircleSelected,
+                      onPressed: () {
+                        setState(() {
+                          _isCircleSelected = true;
+                          _isRectangleSelected = false;
+                          _isPenSelected = false;
+                          _isEraserSelected = false;
+                          _isStickyNoteSelected = false;
+                          _isSelectMode = false;
+                        });
+                      },
+                    ),
+                  ],
 
                   const SizedBox(width: 12),
 
@@ -1121,6 +1133,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
         // SINGLE TAP
         // ----------------------------------------------------------
         onTapDown: (details) {
+          if (!_canEdit) return;
           final position = details.localPosition;
 
           // Sticky Note
@@ -1141,6 +1154,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
         // DOUBLE TAP - EDIT STICKY NOTE
         // ----------------------------------------------------------
         onDoubleTapDown: (details) {
+          if (!_canEdit) return;
           if (!_isSelectMode) return;
 
           final note = _findStickyNoteAt(
