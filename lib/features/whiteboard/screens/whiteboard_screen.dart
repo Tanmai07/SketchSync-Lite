@@ -136,21 +136,36 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
             value: widget.boardId,
           ),
           callback: (payload) {
-            debugPrint('REALTIME DELETE RECEIVED: ${payload.oldRecord}');
+            debugPrint(
+              'REALTIME DELETE RECEIVED',
+            );
+
+            debugPrint(
+              'DELETE OLD RECORD: ${payload.oldRecord}',
+            );
+
             final record = payload.oldRecord;
+
             final id = record['id']?.toString();
 
-            if (id == null) return;
+            debugPrint(
+              'DELETE OBJECT ID: $id',
+            );
+
+            if (id == null) {
+              debugPrint(
+                'DELETE FAILED: No object ID received',
+              );
+              return;
+            }
 
             if (!mounted) return;
 
             setState(() {
-              // Remove sticky note
               _stickyNotes.removeWhere(
                 (note) => note.id == id,
               );
 
-              // Remove pen stroke
               final strokeIndex = _strokeIds.indexOf(id);
 
               if (strokeIndex != -1) {
@@ -158,11 +173,18 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
                 _strokes.removeAt(strokeIndex);
               }
 
-              // Remove shape
               _shapes.removeWhere(
                 (shape) => shape.id == id,
               );
+
+              if (_selectedStickyNote?.id == id) {
+                _selectedStickyNote = null;
+              }
             });
+
+            debugPrint(
+              'DELETE APPLIED TO CANVAS: $id',
+            );
           },
         )
         .subscribe((status, error) {
