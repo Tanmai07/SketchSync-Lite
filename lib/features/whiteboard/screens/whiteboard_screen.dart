@@ -81,7 +81,10 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
             value: widget.boardId,
           ),
           callback: (payload) {
-            debugPrint('REALTIME UPDATE RECEIVED: ${payload.newRecord}');
+            debugPrint(
+              'REALTIME UPDATE RECEIVED: ${payload.newRecord}',
+            );
+
             final record = payload.newRecord;
 
             if (record['type'] != 'sticky_note') {
@@ -115,6 +118,11 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
               }
 
               _stickyNotes[index] = updatedNote;
+
+              // Keep the delete/bin icon attached to the updated note.
+              if (_selectedStickyNote?.id == id) {
+                _selectedStickyNote = updatedNote;
+              }
             });
           },
         )
