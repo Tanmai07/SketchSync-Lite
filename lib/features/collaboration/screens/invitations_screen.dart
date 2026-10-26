@@ -1,13 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../dashboard/providers/board_provider.dart';
 import '../providers/invitation_provider.dart';
 
-class InvitationsScreen extends ConsumerWidget {
+class InvitationsScreen extends ConsumerStatefulWidget {
   const InvitationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InvitationsScreen> createState() => _InvitationsScreenState();
+}
+
+class _InvitationsScreenState extends ConsumerState<InvitationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(myInvitationsProvider);
+      ref.invalidate(boardsProvider);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final invitationsAsync = ref.watch(myInvitationsProvider);
 
     return Scaffold(
@@ -68,7 +84,8 @@ class InvitationsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '$inviterName invited you as ${role.toString().toUpperCase()}',
+                        '$inviterName invited you as '
+                        '${role.toString().toUpperCase()}',
                       ),
                       const SizedBox(height: 12),
                       if (status == 'pending')
@@ -79,12 +96,16 @@ class InvitationsScreen extends ConsumerWidget {
                                 onPressed: () async {
                                   try {
                                     await ref
-                                        .read(invitationRepositoryProvider)
+                                        .read(
+                                          invitationRepositoryProvider,
+                                        )
                                         .acceptInvitation(
                                           invitation['id'],
                                         );
 
-                                    ref.invalidate(myInvitationsProvider);
+                                    ref.invalidate(
+                                      myInvitationsProvider,
+                                    );
                                   } catch (e) {
                                     if (!context.mounted) return;
 
@@ -106,12 +127,16 @@ class InvitationsScreen extends ConsumerWidget {
                                 onPressed: () async {
                                   try {
                                     await ref
-                                        .read(invitationRepositoryProvider)
+                                        .read(
+                                          invitationRepositoryProvider,
+                                        )
                                         .declineInvitation(
                                           invitation['id'],
                                         );
 
-                                    ref.invalidate(myInvitationsProvider);
+                                    ref.invalidate(
+                                      myInvitationsProvider,
+                                    );
                                   } catch (e) {
                                     if (!context.mounted) return;
 
