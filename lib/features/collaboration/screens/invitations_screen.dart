@@ -19,10 +19,14 @@ class InvitationsScreen extends ConsumerWidget {
           child: CircularProgressIndicator(),
         ),
         error: (error, stack) => Center(
-          child: Text(
-            'Failed to load invitations',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Failed to load invitations:\n\n$error',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+              ),
             ),
           ),
         ),
@@ -39,13 +43,11 @@ class InvitationsScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final invitation = invitations[index];
 
-              final board = invitation['boards'];
-              final inviter = invitation['profiles'];
+              final boardTitle = invitation['board_title'] ?? 'Untitled Board';
 
-              final boardTitle = board?['title'] ?? 'Untitled Board';
-
-              final inviterName =
-                  inviter?['name'] ?? inviter?['email'] ?? 'Unknown user';
+              final inviterName = invitation['inviter_name'] ??
+                  invitation['inviter_email'] ??
+                  'Unknown user';
 
               final role = invitation['role'] ?? 'viewer';
               final status = invitation['status'] ?? 'pending';
@@ -72,52 +74,58 @@ class InvitationsScreen extends ConsumerWidget {
                       if (status == 'pending')
                         Row(
                           children: [
-                            ElevatedButton(
-                              onPressed: () async {
-                                try {
-                                  await ref
-                                      .read(invitationRepositoryProvider)
-                                      .acceptInvitation(
-                                        invitation['id'],
-                                      );
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  try {
+                                    await ref
+                                        .read(invitationRepositoryProvider)
+                                        .acceptInvitation(
+                                          invitation['id'],
+                                        );
 
-                                  ref.invalidate(myInvitationsProvider);
-                                } catch (e) {
-                                  if (!context.mounted) return;
+                                    ref.invalidate(myInvitationsProvider);
+                                  } catch (e) {
+                                    if (!context.mounted) return;
 
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          'Failed to accept invitation: $e'),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Accept'),
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to accept invitation: $e',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text('Accept'),
+                              ),
                             ),
                             const SizedBox(width: 10),
-                            OutlinedButton(
-                              onPressed: () async {
-                                try {
-                                  await ref
-                                      .read(invitationRepositoryProvider)
-                                      .declineInvitation(
-                                        invitation['id'],
-                                      );
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  try {
+                                    await ref
+                                        .read(invitationRepositoryProvider)
+                                        .declineInvitation(
+                                          invitation['id'],
+                                        );
 
-                                  ref.invalidate(myInvitationsProvider);
-                                } catch (e) {
-                                  if (!context.mounted) return;
+                                    ref.invalidate(myInvitationsProvider);
+                                  } catch (e) {
+                                    if (!context.mounted) return;
 
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          'Failed to decline invitation: $e'),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Decline'),
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to decline invitation: $e',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text('Decline'),
+                              ),
                             ),
                           ],
                         )

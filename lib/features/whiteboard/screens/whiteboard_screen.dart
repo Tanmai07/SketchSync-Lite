@@ -1,9 +1,8 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../providers/whiteboard_repository.dart';
+import '../../collaboration/widgets/invite_collaborator_dialog.dart';
 
 class WhiteboardScreen extends StatefulWidget {
   final String boardId;
@@ -998,31 +997,42 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
                   const SizedBox(width: 12),
 
                   // Share
-                  Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 18,
-                          color: Color(0xFF6B7280),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => InviteCollaboratorDialog(
+                          boardId: widget.boardId,
                         ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Share',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF374151),
+                      );
+                    },
+                    child: Container(
+                      height: 38,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            size: 18,
+                            color: Color(0xFF6B7280),
                           ),
-                        ),
-                      ],
+                          SizedBox(width: 6),
+                          Text(
+                            'Share',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

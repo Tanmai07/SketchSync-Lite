@@ -8,7 +8,6 @@ class BoardRepository {
   // ============================================================
   // GET BOARDS
   // ============================================================
-
   Future<List<Map<String, dynamic>>> getBoards() async {
     final user = supabase.auth.currentUser;
 
@@ -16,12 +15,49 @@ class BoardRepository {
       throw Exception('User is not logged in.');
     }
 
-    final response = await supabase
+    // Get boards owned by the current user.
+    final ownedResponse = await supabase
         .from('boards')
         .select()
+        .eq('owner_id', user.id)
         .order('updated_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(response);
+    final ownedBoards = List<Map<String, dynamic>>.from(ownedResponse);
+
+    // Get board IDs where the current user is a member.
+    final memberResponse = await supabase
+        .from('board_members')
+        .select('board_id')
+        .eq('user_id', user.id);
+
+    final memberBoardIds =
+        memberResponse.map((row) => row['board_id'].toString()).toSet();
+
+    if (memberBoardIds.isEmpty) {
+      return ownedBoards;
+    }
+
+    // Get the shared boards.
+    final sharedResponse = await supabase
+        .from('boards')
+        .select()
+        .inFilter('id', memberBoardIds.toList())
+        .order('updated_at', ascending: false);
+
+    final sharedBoards = List<Map<String, dynamic>>.from(sharedResponse);
+
+    // Combine owned + shared boards without duplicates.
+    final boardsById = <String, Map<String, dynamic>>{};
+
+    for (final board in ownedBoards) {
+      boardsById[board['id'].toString()] = board;
+    }
+
+    for (final board in sharedBoards) {
+      boardsById[board['id'].toString()] = board;
+    }
+
+    return boardsById.values.toList();
   }
 
   // ============================================================
