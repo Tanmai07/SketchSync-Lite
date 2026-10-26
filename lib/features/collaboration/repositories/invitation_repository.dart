@@ -109,22 +109,13 @@ class InvitationRepository {
     required String email,
     required String role,
   }) async {
-    final response = await _supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email.trim())
-        .maybeSingle();
-
-    if (response == null) {
-      throw Exception('No user found with this email');
-    }
-
-    final invitedUserId = response['id'] as String;
-
-    await createInvitation(
-      boardId: boardId,
-      invitedUserId: invitedUserId,
-      role: role,
+    await _supabase.rpc(
+      'create_board_invitation',
+      params: {
+        'target_board_id': boardId,
+        'target_email': email.trim(),
+        'target_role': role,
+      },
     );
   }
 }

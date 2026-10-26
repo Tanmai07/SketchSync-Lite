@@ -27,6 +27,7 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     _loadStickyNotes();
     _loadStrokes();
     _loadShapes();
+    _loadBoardRole();
 
     _boardChannel = Supabase.instance.client
         .channel('board_${widget.boardId}')
@@ -199,6 +200,28 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     }
   }
 
+  Future<void> _loadBoardRole() async {
+    final user = Supabase.instance.client.auth.currentUser;
+
+    if (user == null) {
+      return;
+    }
+
+    final response = await Supabase.instance.client
+        .from('board_members')
+        .select('role')
+        .eq('board_id', widget.boardId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (!mounted) return;
+
+    setState(() {
+      _boardRole = response?['role'] as String?;
+      _isLoadingRole = false;
+    });
+  }
+
   bool _isPenSelected = false;
   bool _isEraserSelected = false;
   bool _isErasingObject = false;
@@ -207,7 +230,8 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
   bool _isStickyNoteSelected = false;
   bool _isSelectMode = false; //true;
   bool _hasPenMoved = false;
-
+  String? _boardRole;
+  bool _isLoadingRole = true;
   Offset? _shapeStart;
   Offset? _shapeEnd;
 
@@ -996,45 +1020,46 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
 
                   const SizedBox(width: 12),
 
-                  // Share
-                  InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => InviteCollaboratorDialog(
-                          boardId: widget.boardId,
+                  // Share - Owner only
+                  if (!_isLoadingRole && _boardRole == 'owner')
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => InviteCollaboratorDialog(
+                            boardId: widget.boardId,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        height: 38,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
                         ),
-                      );
-                    },
-                    child: Container(
-                      height: 38,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.people_outline,
-                            size: 18,
-                            color: Color(0xFF6B7280),
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Share',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF374151),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              size: 18,
+                              color: Color(0xFF6B7280),
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 6),
+                            Text(
+                              'Share',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
