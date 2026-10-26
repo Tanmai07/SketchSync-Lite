@@ -20,7 +20,6 @@ class WhiteboardScreen extends StatefulWidget {
 
 class _WhiteboardScreenState extends State<WhiteboardScreen> {
   @override
-  @override
   void initState() {
     super.initState();
 
@@ -41,6 +40,48 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
             value: widget.boardId,
           ),
           callback: (payload) {
+            debugPrint(
+              'REALTIME INSERT RECEIVED: ${payload.newRecord}',
+            );
+
+            final record = payload.newRecord;
+            final id = record['id']?.toString();
+
+            if (id == null) return;
+            if (!mounted) return;
+
+            setState(() {
+              // Prevent duplicate objects
+              final alreadyExists = _stickyNotes.any((note) => note.id == id) ||
+                  _strokeIds.contains(id) ||
+                  _shapes.any((shape) => shape.id == id);
+
+              if (alreadyExists) return;
+
+              final object = _createObjectFromRealtimeRecord(record);
+
+              if (object is StickyNote) {
+                _stickyNotes.add(object);
+              } else if (object is List<Offset>) {
+                _strokes.add(object);
+                _strokeIds.add(id);
+              } else if (object is WhiteboardShape) {
+                _shapes.add(object);
+              }
+            });
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'board_objects',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'board_id',
+            value: widget.boardId,
+          ),
+          callback: (payload) {
+            debugPrint('REALTIME UPDATE RECEIVED: ${payload.newRecord}');
             final record = payload.newRecord;
 
             if (record['type'] != 'sticky_note') {
@@ -49,37 +90,80 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
 
             final id = record['id'] as String;
 
-            // Don't add the same note twice
-            if (_stickyNotes.any((note) => note.id == id)) {
-              return;
-            }
-
             final data = Map<String, dynamic>.from(
               record['data'] as Map,
             );
 
-            final note = StickyNote(
+            final updatedNote = StickyNote(
               id: id,
               position: Offset(
                 (data['x'] as num).toDouble(),
                 (data['y'] as num).toDouble(),
               ),
-              text: data['text'] as String,
+              text: (data['text'] ?? '').toString(),
             );
 
             if (!mounted) return;
 
             setState(() {
-              _stickyNotes.add(note);
+              final index = _stickyNotes.indexWhere(
+                (note) => note.id == id,
+              );
+
+              if (index == -1) {
+                return;
+              }
+
+              _stickyNotes[index] = updatedNote;
             });
           },
-          /*callback: (payload) {
-            debugPrint(
-              'Realtime insert: ${payload.newRecord}',
-            );
-          },*/
         )
-        .subscribe();
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'board_objects',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'board_id',
+            value: widget.boardId,
+          ),
+          callback: (payload) {
+            debugPrint('REALTIME DELETE RECEIVED: ${payload.oldRecord}');
+            final record = payload.oldRecord;
+            final id = record['id']?.toString();
+
+            if (id == null) return;
+
+            if (!mounted) return;
+
+            setState(() {
+              // Remove sticky note
+              _stickyNotes.removeWhere(
+                (note) => note.id == id,
+              );
+
+              // Remove pen stroke
+              final strokeIndex = _strokeIds.indexOf(id);
+
+              if (strokeIndex != -1) {
+                _strokeIds.removeAt(strokeIndex);
+                _strokes.removeAt(strokeIndex);
+              }
+
+              // Remove shape
+              _shapes.removeWhere(
+                (shape) => shape.id == id,
+              );
+            });
+          },
+        )
+        .subscribe((status, error) {
+      debugPrint('Realtime status: $status');
+
+      if (error != null) {
+        debugPrint('Realtime error: $error');
+      }
+    });
   }
 
   final WhiteboardRepository _repository =
@@ -198,6 +282,55 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
     } catch (e) {
       debugPrint('Failed to load shapes: $e');
     }
+  }
+
+  dynamic _createObjectFromRealtimeRecord(
+    Map<String, dynamic> record,
+  ) {
+    final type = record['type'] as String;
+    final data = Map<String, dynamic>.from(record['data'] as Map);
+    final id = record['id'] as String;
+
+    if (type == 'sticky_note') {
+      return StickyNote(
+        id: id,
+        position: Offset(
+          (data['x'] as num).toDouble(),
+          (data['y'] as num).toDouble(),
+        ),
+        text: (data['text'] ?? '').toString(),
+      );
+    }
+
+    if (type == 'stroke') {
+      final points = (data['points'] as List)
+          .map(
+            (point) => Offset(
+              (point['x'] as num).toDouble(),
+              (point['y'] as num).toDouble(),
+            ),
+          )
+          .toList();
+
+      return points;
+    }
+
+    if (type == 'rectangle' || type == 'circle') {
+      return WhiteboardShape(
+        id: id,
+        type: type == 'rectangle' ? ShapeType.rectangle : ShapeType.circle,
+        start: Offset(
+          (data['startX'] as num).toDouble(),
+          (data['startY'] as num).toDouble(),
+        ),
+        end: Offset(
+          (data['endX'] as num).toDouble(),
+          (data['endY'] as num).toDouble(),
+        ),
+      );
+    }
+
+    return null;
   }
 
   Future<void> _loadBoardRole() async {
@@ -1201,13 +1334,14 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
             // --------------------------------------------------------
             // DELETE BUTTON
             // --------------------------------------------------------
+            // --------------------------------------------------------
             if (_selectedStickyNote != null)
               Positioned(
                 left: _selectedStickyNote!.position.dx + 116,
                 top: _selectedStickyNote!.position.dy - 12,
                 child: Material(
                   color: Colors.transparent,
-                  child: InkWell(
+                  child: GestureDetector(
                     onTap: () {
                       final note = _selectedStickyNote;
 
@@ -1215,7 +1349,38 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
                         _deleteStickyNote(note);
                       }
                     },
-                    borderRadius: BorderRadius.circular(20),
+
+                    // Drag delete button together with sticky note
+                    onPanUpdate: (details) {
+                      if (!_canEdit) return;
+
+                      final note = _selectedStickyNote;
+
+                      if (note == null) return;
+
+                      setState(() {
+                        note.position += details.delta;
+                      });
+                    },
+
+                    onPanEnd: (details) async {
+                      final note = _selectedStickyNote;
+
+                      if (note == null) return;
+
+                      try {
+                        await _repository.updateStickyNotePosition(
+                          objectId: note.id,
+                          x: note.position.dx,
+                          y: note.position.dy,
+                        );
+                      } catch (e) {
+                        debugPrint(
+                          'Failed to update sticky note position: $e',
+                        );
+                      }
+                    },
+
                     child: Container(
                       width: 30,
                       height: 30,
@@ -1246,6 +1411,17 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    if (_boardChannel != null) {
+      Supabase.instance.client.removeChannel(
+        _boardChannel!,
+      );
+    }
+
+    super.dispose();
   }
 }
 
