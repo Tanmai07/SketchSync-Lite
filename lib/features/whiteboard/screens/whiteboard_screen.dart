@@ -41,8 +41,43 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
             value: widget.boardId,
           ),
           callback: (payload) {
-            debugPrint('Realtime object inserted: ${payload.newRecord}');
+            final record = payload.newRecord;
+
+            if (record['type'] != 'sticky_note') {
+              return;
+            }
+
+            final id = record['id'] as String;
+
+            // Don't add the same note twice
+            if (_stickyNotes.any((note) => note.id == id)) {
+              return;
+            }
+
+            final data = Map<String, dynamic>.from(
+              record['data'] as Map,
+            );
+
+            final note = StickyNote(
+              id: id,
+              position: Offset(
+                (data['x'] as num).toDouble(),
+                (data['y'] as num).toDouble(),
+              ),
+              text: data['text'] as String,
+            );
+
+            if (!mounted) return;
+
+            setState(() {
+              _stickyNotes.add(note);
+            });
           },
+          /*callback: (payload) {
+            debugPrint(
+              'Realtime insert: ${payload.newRecord}',
+            );
+          },*/
         )
         .subscribe();
   }

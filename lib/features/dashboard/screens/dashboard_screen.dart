@@ -8,6 +8,7 @@ import '../../auth/screens/login_screen.dart';
 import '../providers/board_provider.dart';
 import '../widgets/create_board_dialog.dart';
 import '../../whiteboard/screens/whiteboard_screen.dart';
+import '../../collaboration/screens/invitations_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -436,6 +437,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           _sidebarItem(
             icon: Icons.people_outline_rounded,
             title: 'Team',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const InvitationsScreen(),
+                ),
+              );
+            },
           ),
 
           // Settings
